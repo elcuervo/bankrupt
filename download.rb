@@ -1,50 +1,92 @@
 require "net/http"
 require "nokogiri"
 
-login_uri = URI.parse("https://www.itaulink.com.uy/appl/servlet/FeaServlet")
-download_uri = URI.parse("https://www.itaulink.com.uy/appl/servlet/FeaServletDownload")
+Bankrupt = Struct.new(:id, :password) do
+  TYPES = %w(Pesos lares)
 
-http = Net::HTTP.new(login_uri.host, login_uri.port)
-http.set_debug_output $stdout
-http.use_ssl = true
+  Account = Struct.new(:currency, :number, :balance) do
+    def balance_as_csv
+      url = "https://www.itaulink.com.uy/appl/servlet/FeaServletDownload"
 
-# Login
+      response = Bankrupt.post(url, {
+        nro_cuenta: number,
+        id: "bajar_archivo",
+        mes_anio: "null",
+        fecha: "",
+        tipo_archivo: "E"
+      })
 
-request = Net::HTTP::Post.new(login_uri.request_uri)
-request.set_form_data({
-  id: "login",
-  tipo_usuario: "R",
-  tipo_documento: "1",
-  nro_documento: ENV["CI"],
-  password: ENV["PASSWORD"]
-})
+      response.body
+    end
+  end
 
-response = http.request(request)
-accounts = response["Location"]
-cookie = response['Set-Cookie'].split('; ')[0]
+  class << self
+    attr_accessor :cookie
 
-# List accounts
+    def http
+      @_http ||= begin
+        uri = URI.parse("https://www.itaulink.com.uy/")
+        http = Net::HTTP.new(uri.host, uri.port)
+        http.set_debug_output $stdout if ENV["DEBUG"]
+        http.use_ssl = true
+        http
+      end
+    end
 
-accounts_uri = URI.parse(accounts)
-request = Net::HTTP::Get.new(accounts_uri.request_uri)
-request["Cookie"] = cookie
-response = http.request(request)
+    def get(url)
+      uri = URI.parse(url)
+      request = Net::HTTP::Get.new(uri.request_uri)
+      request["Cookie"] = Bankrupt.cookie if Bankrupt.cookie
 
-parser = Nokogiri::HTML(response.body)
-account_number = parser.search(".//td[./font[contains(.,'Pesos')]]/preceding-sibling::*").text
-values = parser.search(".//td[./font[contains(.,'Pesos')]]/following-sibling::*").text.split
+      self.http.request(request)
+    end
 
-# Download account
+    def post(url, data)
+      uri = URI.parse(url)
+      request = Net::HTTP::Post.new(uri.request_uri)
+      request.set_form_data(data)
+      request["Cookie"] = Bankrupt.cookie if Bankrupt.respond_to?(:cookie)
 
-request = Net::HTTP::Post.new(download_uri.request_uri)
-request["Cookie"] = cookie
-request.set_form_data({
-  nro_cuenta: account_number,
-  id: "bajar_archivo",
-  mes_anio: "null",
-  fecha: "",
-  tipo_archivo: "E"
-})
+      self.http.request(request)
+    end
+  end
 
-response = http.request(request)
-puts response.body
+  def login
+    response = Bankrupt.post("https://www.itaulink.com.uy/appl/servlet/FeaServlet", {
+      id: "login",
+      tipo_usuario: "R",
+      tipo_documento: "1",
+      nro_documento: id,
+      password: password
+    })
+
+    cookie = response['Set-Cookie'].split('; ')[0]
+    @accounts_url = response["Location"]
+
+    Bankrupt.cookie = cookie
+  end
+
+  def accounts
+    @_accounts ||= begin
+      response = Bankrupt.get(@accounts_url)
+      parser = Nokogiri::HTML(response.body)
+      accounts = []
+
+      TYPES.each do |type|
+        location = ".//td[./font[contains(.,'#{type}')]]/"
+        number = parser.search("#{location}preceding-sibling::*").text
+        balance = parser.search("#{location}following-sibling::*").text.split[0]
+
+        accounts << Account.new(type, number, balance)
+      end
+
+      accounts
+   end
+  end
+end
+
+bankrupt = Bankrupt.new(ENV["CI"], ENV["PASSWORD"])
+bankrupt.login
+bankrupt.accounts.each do |account|
+  puts account.balance_as_csv
+end
