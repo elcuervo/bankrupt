@@ -10,7 +10,7 @@ Bankrupt = Struct.new(:id, :password) do
   Account = Struct.new(:currency, :number, :balance) do
     Balance = Struct.new(:date, :amount, :description)
 
-    def balance_as_csv
+    def balance_from_itau
       url = "https://www.itaulink.com.uy/appl/servlet/FeaServletDownload"
 
       response = Bankrupt.post(url, {
@@ -24,6 +24,17 @@ Bankrupt = Struct.new(:id, :password) do
       response.body
     end
 
+    def balance_as_csv
+      csv = ""
+      csv << %w(Date Amount Description).to_csv
+
+      balance.each do |item|
+        csv << [item.date, item.amount, item.description].to_csv
+      end
+
+      csv
+    end
+
     def fix_date(date)
       day = date[0..1]
       month = date[2..4].to_sym
@@ -35,7 +46,7 @@ Bankrupt = Struct.new(:id, :password) do
     def balance
       balances = []
 
-      CSV.parse(balance_as_csv, headers: true) do |row|
+      CSV.parse(balance_from_itau, headers: true) do |row|
         date = fix_date(row["FECHA"])
         amount = row["HABER"].to_f - row["DEBE"].to_f
         description = row["CONCEPTO"]
@@ -45,6 +56,7 @@ Bankrupt = Struct.new(:id, :password) do
 
       balances[1...-1]
     end
+
   end
 
   class << self
@@ -112,9 +124,10 @@ Bankrupt = Struct.new(:id, :password) do
   end
 end
 
-bankrupt = Bankrupt.new(ENV["CI"], ENV["PASSWORD"])
-bankrupt.login
-bankrupt.accounts.each do |account|
-  puts account.number
-  puts account.balance
+if __FILE__ == $0
+  bankrupt = Bankrupt.new(ENV["CI"], ENV["PASSWORD"])
+  bankrupt.login
+  bankrupt.accounts.each do |account|
+    open("#{account.number}.csv", "w") << account.balance_as_csv
+  end
 end
