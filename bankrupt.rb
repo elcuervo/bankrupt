@@ -1,3 +1,5 @@
+#!/usr/bin/env ruby
+
 require "net/http"
 require "csv"
 require "nokogiri"
@@ -25,8 +27,7 @@ Bankrupt = Struct.new(:id, :password) do
     end
 
     def balance_as_csv
-      csv = ""
-      csv << %w(Date Amount Description).to_csv
+      csv = %w(Date Amount Description).to_csv
 
       balance.each do |item|
         csv << [item.date, item.amount, item.description].to_csv
