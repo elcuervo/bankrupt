@@ -1,10 +1,15 @@
 require "net/http"
+require "csv"
 require "nokogiri"
 
 Bankrupt = Struct.new(:id, :password) do
   TYPES = %w(Pesos lares)
+  DATE_MAP = { ENE: 1, FEB: 2, MAR: 3, ABR: 4, MAY: 5, JUN: 6, JUL: 7, AGO: 8,
+               SET: 9, OCT: 10, NOV: 11, DEC: 12 }
 
   Account = Struct.new(:currency, :number, :balance) do
+    Balance = Struct.new(:date, :amount, :description)
+
     def balance_as_csv
       url = "https://www.itaulink.com.uy/appl/servlet/FeaServletDownload"
 
@@ -17,6 +22,28 @@ Bankrupt = Struct.new(:id, :password) do
       })
 
       response.body
+    end
+
+    def fix_date(date)
+      day = date[0..1]
+      month = date[2..4].to_sym
+      year = "20" + date[5..6]
+
+      "#{DATE_MAP[month]}/#{day}/#{year}"
+    end
+
+    def balance
+      balances = []
+
+      CSV.parse(balance_as_csv, headers: true) do |row|
+        date = fix_date(row["FECHA"])
+        amount = row["HABER"].to_f - row["DEBE"].to_f
+        description = row["CONCEPTO"]
+
+        balances << Balance.new(date, amount, description)
+      end
+
+      balances[1...-1]
     end
   end
 
@@ -88,5 +115,6 @@ end
 bankrupt = Bankrupt.new(ENV["CI"], ENV["PASSWORD"])
 bankrupt.login
 bankrupt.accounts.each do |account|
-  puts account.balance_as_csv
+  puts account.number
+  puts account.balance
 end
