@@ -125,9 +125,17 @@ Bankrupt = Struct.new(:id, :password) do
 end
 
 if __FILE__ == $0
-  bankrupt = Bankrupt.new(ENV["CI"], ENV["PASSWORD"])
+  account_id = ENV.fetch("CI", $1)
+  password = ENV.fetch("PASSWORD", $2)
+
+  bankrupt = Bankrupt.new(account_id, password)
   bankrupt.login
+  puts "Fetching account information..."
+
   bankrupt.accounts.each do |account|
-    open("#{account.number}.csv", "w") << account.balance_as_csv
+    filename = "#{account.number}.csv"
+    open(filename, "w") << account.balance_as_csv
+
+    puts "#{filename} exported"
   end
 end
