@@ -113,11 +113,14 @@ Bankrupt = Struct.new(:id, :password) do
       accounts = []
 
       TYPES.each do |type|
-        location = ".//td[./font[contains(.,'#{type}')]]/"
-        number = parser.search("#{location}preceding-sibling::*").text
-        balance = parser.search("#{location}following-sibling::*").text.split[0]
+        locations = ".//td[./font[contains(.,'#{type}')]]"
+        parser.search(locations).each do |location|
+          rows = location.parent.search("td")
+          number = rows.first.text
+          balance = rows[2].text
 
-        accounts << Account.new(type, number, balance)
+          accounts << Account.new(type, number, balance)
+        end
       end
 
       puts "There are #{accounts.size} accounts. (#{accounts.map(&:number).join(",")})"
