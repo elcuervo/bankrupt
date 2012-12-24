@@ -85,7 +85,7 @@ Bankrupt = Struct.new(:id, :password) do
       uri = URI.parse(url)
       request = Net::HTTP::Post.new(uri.request_uri)
       request.set_form_data(data)
-      request["Cookie"] = Bankrupt.cookie if Bankrupt.respond_to?(:cookie)
+      request["Cookie"] = Bankrupt.cookie if Bankrupt.cookie
 
       self.http.request(request)
     end
