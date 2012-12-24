@@ -120,6 +120,8 @@ Bankrupt = Struct.new(:id, :password) do
         accounts << Account.new(type, number, balance)
       end
 
+      puts "There are #{accounts.size} accounts. (#{accounts.map(&:number).join(",")})"
+
       accounts
    end
   end
