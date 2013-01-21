@@ -4,10 +4,10 @@ require "net/http"
 require "csv"
 require "nokogiri"
 
-Bankrupt = Struct.new(:id, :password) do
+Bankrupt = Struct.new(:id, :password, :company, :company_password) do
   TYPES = %w(Pesos lares)
-  DATE_MAP = { ENE: 1, FEB: 2, MAR: 3, ABR: 4, MAY: 5, JUN: 6, JUL: 7, AGO: 8,
-               SET: 9, OCT: 10, NOV: 11, DEC: 12 }
+  DATE_MAP = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8,
+               SEP: 9, OCT: 10, NOV: 11, DEC: 12 }
 
   Account = Struct.new(:currency, :number, :balance) do
     Balance = Struct.new(:date, :amount, :description)
@@ -98,6 +98,24 @@ Bankrupt = Struct.new(:id, :password) do
       tipo_documento: "1",
       nro_documento: id,
       password: password
+    })
+
+    cookie = response['Set-Cookie'].split('; ')[0]
+    @accounts_url = response["Location"]
+
+    Bankrupt.cookie = cookie
+  end
+
+  def company_login
+    response = Bankrupt.post("https://www.itaulink.com.uy/appl/servlet/FeaServlet", {
+      id: "login",
+      tipo_usuario: "C",
+      empresa: company.upcase,
+      empresa_aux: company,
+      pwd_empresa: company_password,
+      usuario: id,
+      usuario_aux: id,
+      pwd_usuario: password
     })
 
     cookie = response['Set-Cookie'].split('; ')[0]

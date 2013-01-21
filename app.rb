@@ -14,9 +14,16 @@ Cuba.define do
 
   on post, "accounts" do
     account, password = req.params["username"], req.params["password"]
-    bankrupt = Bankrupt.new(account, password)
+    company, company_password = req.params["company"], req.params["company_password"]
 
-    bankrupt.login
+    bankrupt = Bankrupt.new(account, password, company, company_password)
+
+    if !company.nil?
+      bankrupt.company_login
+    else
+      bankrupt.login
+    end
+
     puts "Fetching account information..."
 
     file_name = "#{account}.zip"
