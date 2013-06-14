@@ -1,15 +1,7 @@
 <h1>Bankrupt</h1>
 
 <form action="/accounts" method="post">
-  <label>
-    <span>Usuario:</span>
-    <input type="text" name="username"/>
-  </label>
-  <label>
-    <span>Password:</span>
-    <input type="password" name="password"/>
-  </label>
-  <input type="submit" value="Get info!"/>
+  <%= view("user_auth") %>
 </form>
 
 <form action="/accounts" method="post">
@@ -22,13 +14,5 @@
     <input type="password" name="company_password"/>
   </label>
 
-  <label>
-    <span>Usuario:</span>
-    <input type="text" name="username"/>
-  </label>
-  <label>
-    <span>Password:</span>
-    <input type="password" name="password"/>
-  </label>
-  <input type="submit" value="Get company info"/>
+  <%= view("user_auth") %>
 </form>

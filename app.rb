@@ -4,13 +4,9 @@ require "cuba"
 require "cuba/render"
 require 'zip/zip'
 
-
-
 Cuba.plugin Cuba::Render
 Cuba.define do
-  on root do
-    res.write view("home")
-  end
+  on(root) { res.write view("home") }
 
   on post, "accounts" do
     account, password = req.params["username"], req.params["password"]
@@ -32,7 +28,7 @@ Cuba.define do
     Zip::ZipOutputStream.open(compressed.path) do |zip|
       bankrupt.accounts.each do |account|
         zip.put_next_entry("#{account.number}.csv")
-        zip.print account.balance_as_csv
+        zip.print account.balance_as_csv(req.params["month"])
       end
     end
 

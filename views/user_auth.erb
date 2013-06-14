@@ -1,0 +1,18 @@
+<label>
+  <span>Mes:</span>
+  <select name="month">
+    <% 1.upto(Time.now.month - 1) do |month| %>
+      <option value="<%= month %>"><%= month %></option>
+    <% end %>
+    <option selected value="<%= Time.now.month %>"><%= Time.now.month %></option>
+  </select>
+</label>
+<label>
+  <span>Usuario:</span>
+  <input type="text" name="username"/>
+</label>
+<label>
+  <span>Password:</span>
+  <input type="password" name="password"/>
+</label>
+<input type="submit" value="Get info!"/>

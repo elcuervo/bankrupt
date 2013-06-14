@@ -12,9 +12,8 @@ Bankrupt = Struct.new(:id, :password, :company, :company_password) do
   Account = Struct.new(:currency, :number, :balance) do
     Balance = Struct.new(:date, :amount, :description)
 
-    def balance_from_itau
+    def balance_from_itau(month)
       url = "https://www.itaulink.com.uy/appl/servlet/FeaServletDownload"
-      month = Time.now.month - 1 # Oh Itau...
       year = Time.now.year
 
       response = Bankrupt.post(url, {
@@ -29,10 +28,10 @@ Bankrupt = Struct.new(:id, :password, :company, :company_password) do
       response.body
     end
 
-    def balance_as_csv
+    def balance_as_csv(month = Time.now.month - 1)
       csv = %w(Date Amount Description).to_csv
 
-      balance.each do |item|
+      balance(month).each do |item|
         csv << [item.date, item.amount, item.description].to_csv
       end
 
@@ -47,10 +46,10 @@ Bankrupt = Struct.new(:id, :password, :company, :company_password) do
       "#{DATE_MAP[month]}/#{day}/#{year}"
     end
 
-    def balance
+    def balance(month)
       balances = []
 
-      CSV.parse(balance_from_itau, headers: true) do |row|
+      CSV.parse(balance_from_itau(month), headers: true) do |row|
         puts row
         date = fix_date(row["FECHA"])
         amount = row["HABER"].to_f - row["DEBE"].to_f
