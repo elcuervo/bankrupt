@@ -105,6 +105,7 @@ Bankrupt = Struct.new(:id, :password, :company, :company_password) do
 
     cookie = response['Set-Cookie'].split('; ')[0]
     @accounts_url = response["Location"]
+    puts "Account URL: #{@accounts_url}"
 
     Bankrupt.cookie = cookie
   end
