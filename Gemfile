@@ -1,6 +1,6 @@
-source :rubygems
+source "https://rubygems.org"
 
-ruby "1.9.3"
+ruby "2.7.2"
 
 gem "cuba"
 gem "zip"
