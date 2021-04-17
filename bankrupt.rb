@@ -3,28 +3,32 @@
 require "net/http"
 require "csv"
 require "nokogiri"
+require "json"
+require "date"
 
 Bankrupt = Struct.new(:id, :password, :company, :company_password) do
-  TYPES = %w(Pesos lares)
-  DATE_MAP = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8,
-               SEP: 9, OCT: 10, NOV: 11, DEC: 12 }
-
-  Account = Struct.new(:currency, :number, :balance) do
+  Account = Struct.new(:type_name, :type, :hash, :currency, :number, :balance) do
     Balance = Struct.new(:date, :amount, :description)
 
+    def filename
+      "#{type_name}-#{number}-#{currency}"
+    end
+
+    def url
+      "https://www.itaulink.com.uy/trx/cuentas/#{type}/#{hash}"
+    end
+
+    def file_url_for_last_days(format = "TXT")
+      url + "/reporteEstadoCta/#{format}?diasAtras=5" # 5 is the only value that works :-/
+    end
+
+    def file_url_for_month(year = Time.now.year, month = Time.now.month, format = "TXT")
+      url + "/reporteEstadoCta/#{format}?anio=#{year}&mes=#{month}"
+    end
+
     def balance_from_itau(month)
-      url = "https://www.itaulink.com.uy/appl/servlet/FeaServletDownload"
-      year = Time.now.year
-
-      response = Bankrupt.post(url, {
-        nro_cuenta: number,
-        id: "bajar_archivo",
-        mes_anio: "#{month}#{year}",
-        dias: 10,
-        fecha: "",
-        tipo_archivo: "E"
-      })
-
+      puts "Downloading from: " + file_url_for_last_days
+      response = Bankrupt.get(file_url_for_last_days)
       response.body
     end
 
@@ -38,29 +42,24 @@ Bankrupt = Struct.new(:id, :password, :company, :company_password) do
       csv
     end
 
-    def fix_date(date)
-      day = date[0..1]
-      month = date[2..4].to_sym
-      year = "20" + date[5..6]
-
-      "#{DATE_MAP[month]}/#{day}/#{year}"
-    end
-
     def balance(month)
       balances = []
 
-      CSV.parse(balance_from_itau(month), headers: true) do |row|
-        puts row
-        date = fix_date(row["FECHA"])
-        amount = row["HABER"].to_f - row["DEBE"].to_f
-        description = row["CONCEPTO"]
-
-        balances << Balance.new(date, amount, description)
+      balance_from_itau(month).each_line do |line|
+        data = line.chomp.unpack("a7a4a7a2a15a15a*")
+        date = Date.parse(data[2])
+        amount = data[5].to_f - data[4].to_f
+        description = data[6].gsub(/\s\s*/, " ")
+        balances << Balance.new(date, amount, description) if transaction_data?(description)
       end
 
-      balances[1...-1]
+      balances
     end
 
+    def transaction_data?(description)
+      [/^CONCEPTO/, /^SALDO INICIAL/, /^SALDO FINAL/].
+        none? { |e| description.to_s.strip.match?(e) }
+    end
   end
 
   class << self
@@ -95,11 +94,12 @@ Bankrupt = Struct.new(:id, :password, :company, :company_password) do
   end
 
   def login
-    response = Bankrupt.post("https://www.itaulink.com.uy/appl/servlet/FeaServlet", {
+    response = Bankrupt.post("https://www.itaulink.com.uy/trx/doLogin", {
       id: "login",
       tipo_usuario: "R",
       tipo_documento: "1",
       nro_documento: id,
+      pass: password,
       password: password
     })
 
@@ -131,24 +131,28 @@ Bankrupt = Struct.new(:id, :password, :company, :company_password) do
   def accounts
     @_accounts ||= begin
       response = Bankrupt.get(@accounts_url)
-      parser = Nokogiri::HTML(response.body)
+      json_string = response.body[/var mensajeUsuario = JSON.parse\('(.*)'\)\;/, 1]
+      json = JSON.parse(json_string)
       accounts = []
 
-      TYPES.each do |type|
-        locations = ".//td[./font[contains(.,'#{type}')]]"
-        parser.search(locations).each do |location|
-          rows = location.parent.search("td")
-          number = rows.first.text
-          balance = rows[2].text
-
-          accounts << Account.new(type, number, balance)
+      accounts_json = json["cuentas"]
+      accounts_json.keys.each do |account_type|
+        accounts_json[account_type].each do |account_data|
+          accounts << Account.new(
+            account_type,
+            account_data["tipoCuenta"],
+            account_data["hash"],
+            account_data["moneda"],
+            account_data["idCuenta"],
+            account_data["saldo"]
+          )
         end
       end
 
       puts "There are #{accounts.size} accounts. (#{accounts.map(&:number).join(",")})"
 
       accounts
-   end
+    end
   end
 end
 
@@ -161,7 +165,7 @@ if __FILE__ == $0
   puts "Fetching account information..."
 
   bankrupt.accounts.each do |account|
-    filename = "#{account.number}.csv"
+    filename = "#{account.filename}.csv"
     open(filename, "w") << account.balance_as_csv
 
     puts "#{filename} exported"

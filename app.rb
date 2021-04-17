@@ -22,18 +22,19 @@ Cuba.define do
 
     puts "Fetching account information..."
 
-    file_name = "#{account}.zip"
-    compressed = Tempfile.new("#{account}-#{Time.now}")
+    zip_name = "accounts-#{account}-#{Time.now.strftime("%Y%m%dT%H%M%S")}.zip"
+    compressed = Tempfile.new(zip_name)
 
     Zip::ZipOutputStream.open(compressed.path) do |zip|
       bankrupt.accounts.each do |account|
-        zip.put_next_entry("#{account.number}.csv")
+        file_name = "#{account.filename}.csv"
+        zip.put_next_entry(file_name)
         zip.print account.balance_as_csv(req.params["month"])
       end
     end
 
     res["Content-Type"] = "application/zip"
-    res["Content-Disposition"] = "attachment"
+    res["Content-Disposition"] = "attachment; filename=#{zip_name}"
 
     res.write compressed.read
 

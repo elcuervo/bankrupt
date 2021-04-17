@@ -3,6 +3,7 @@ GEM
   specs:
     cuba (3.9.3)
       rack (>= 1.6.0)
+    json (2.5.1)
     kgio (2.11.3)
     mini_portile2 (2.5.0)
     nokogiri (1.11.3)
@@ -22,6 +23,7 @@ PLATFORMS
 
 DEPENDENCIES
   cuba
+  json
   nokogiri
   tilt
   unicorn
