@@ -1,10 +1,20 @@
 <label>
+  <span>Año:</span>
+  <select name="year">
+    <option value="<%= Date.today.year - 1 %>"><%= Date.today.year - 1 %></option>
+    <option selected value="<%= Date.today.year %>"><%= Date.today.year %></option>
+  </select>
+</label>
+<label>
   <span>Mes:</span>
   <select name="month">
-    <% 1.upto(Time.now.month - 1) do |month| %>
-      <option value="<%= month %>"><%= month %></option>
+    <% (1..12).each do |month| %>
+      <% if month == Date.today.month %>
+        <option selected value="<%= month %>"><%= month %></option>
+      <% else %>
+        <option value="<%= month %>"><%= month %></option>
+      <% end %>
     <% end %>
-    <option selected value="<%= Time.now.month %>"><%= Time.now.month %></option>
   </select>
 </label>
 <label>

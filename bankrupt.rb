@@ -26,26 +26,28 @@ Bankrupt = Struct.new(:id, :password, :company, :company_password) do
       url + "/reporteEstadoCta/#{format}?anio=#{year}&mes=#{month}"
     end
 
-    def balance_from_itau(month)
-      puts "Downloading from: " + file_url_for_last_days
-      response = Bankrupt.get(file_url_for_last_days)
+    def balance_from_itau(year, month)
+      url = year && month ? file_url_for_month(year, month) : file_url_for_last_days
+
+      puts "Downloading from: #{url}"
+      response = Bankrupt.get(url)
       response.body
     end
 
-    def balance_as_csv(month = Time.now.month - 1)
+    def balance_as_csv(year, month)
       csv = %w(Date Amount Description).to_csv
 
-      balance(month).each do |item|
+      balance(year, month).each do |item|
         csv << [item.date, item.amount, item.description].to_csv
       end
 
       csv
     end
 
-    def balance(month)
+    def balance(year, month)
       balances = []
 
-      balance_from_itau(month).each_line do |line|
+      balance_from_itau(year, month).each_line do |line|
         data = line.chomp.unpack("a7a4a7a2a15a15a*")
         date = Date.parse(data[2])
         amount = data[5].to_f - data[4].to_f
@@ -157,16 +159,18 @@ Bankrupt = Struct.new(:id, :password, :company, :company_password) do
 end
 
 if __FILE__ == $0
-  account_id = ENV.fetch("CI", $1)
-  password = ENV.fetch("PASSWORD", $2)
+  account_id = ARGV.fetch(0, ENV["CI"])
+  password = ARGV.fetch(1, ENV["PASSWORD"])
+  year = ARGV.fetch(2, ENV["YEAR"])
+  month = ARGV.fetch(3, ENV["MONTH"])
 
   bankrupt = Bankrupt.new(account_id, password)
   bankrupt.login
   puts "Fetching account information..."
 
   bankrupt.accounts.each do |account|
-    filename = "#{account.filename}.csv"
-    open(filename, "w") << account.balance_as_csv
+    filename = "#{[account.filename, year, month].compact.join("-")}.csv"
+    open(filename, "w") << account.balance_as_csv(year, month)
 
     puts "#{filename} exported"
   end

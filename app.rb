@@ -3,6 +3,7 @@ require "tmpdir"
 require "cuba"
 require "cuba/render"
 require 'zip/zip'
+require "date"
 
 Cuba.plugin Cuba::Render
 Cuba.define do
@@ -29,7 +30,7 @@ Cuba.define do
       bankrupt.accounts.each do |account|
         file_name = "#{account.filename}.csv"
         zip.put_next_entry(file_name)
-        zip.print account.balance_as_csv(req.params["month"])
+        zip.print account.balance_as_csv(req.params["year"], req.params["month"])
       end
     end
 
