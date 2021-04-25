@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 
+# frozen_string_literal: true
+
 require "net/http"
 require "csv"
 require "nokogiri"
@@ -35,10 +37,27 @@ Bankrupt = Struct.new(:id, :password, :company, :company_password) do
     end
 
     def balance_as_csv(year, month)
-      csv = %w(Date Amount Description).to_csv
+      csv = %w[Date Amount Description].to_csv
 
       balance(year, month).each do |item|
         csv << [item.date, item.amount, item.description].to_csv
+      end
+
+      csv
+    end
+
+    def balance_as_ynab_csv(year, month)
+      csv = %w[Date Payee Category Memo Outflow Inflow]
+
+      balance(year, month).each do |item|
+        csv << [
+          item.date,
+          item.description,
+          "",
+          item.description,
+          [0, item.amount].min * -1,
+          [0, item.amount].max
+        ].to_csv
       end
 
       csv
@@ -59,8 +78,8 @@ Bankrupt = Struct.new(:id, :password, :company, :company_password) do
     end
 
     def transaction_data?(description)
-      [/^CONCEPTO/, /^SALDO INICIAL/, /^SALDO FINAL/].
-        none? { |e| description.to_s.strip.match?(e) }
+      [/^CONCEPTO/, /^SALDO INICIAL/, /^SALDO FINAL/]
+        .none? { |e| description.to_s.strip.match?(e) }
     end
   end
 
@@ -82,7 +101,7 @@ Bankrupt = Struct.new(:id, :password, :company, :company_password) do
       request = Net::HTTP::Get.new(uri.request_uri)
       request["Cookie"] = Bankrupt.cookie if Bankrupt.cookie
 
-      self.http.request(request)
+      http.request(request)
     end
 
     def post(url, data)
@@ -91,21 +110,24 @@ Bankrupt = Struct.new(:id, :password, :company, :company_password) do
       request.set_form_data(data)
       request["Cookie"] = Bankrupt.cookie if Bankrupt.cookie
 
-      self.http.request(request)
+      http.request(request)
     end
   end
 
   def login
-    response = Bankrupt.post("https://www.itaulink.com.uy/trx/doLogin", {
-      id: "login",
-      tipo_usuario: "R",
-      tipo_documento: "1",
-      nro_documento: id,
-      pass: password,
-      password: password
-    })
+    response =
+      Bankrupt.post(
+        "https://www.itaulink.com.uy/trx/doLogin", {
+          id: "login",
+          tipo_usuario: "R",
+          tipo_documento: "1",
+          nro_documento: id,
+          pass: password,
+          password: password
+        }
+      )
 
-    cookie = response['Set-Cookie'].split('; ')[0]
+    cookie = response["Set-Cookie"].split("; ")[0]
     @accounts_url = response["Location"]
     puts "Account URL: #{@accounts_url}"
 
@@ -113,18 +135,21 @@ Bankrupt = Struct.new(:id, :password, :company, :company_password) do
   end
 
   def company_login
-    response = Bankrupt.post("https://www.itaulink.com.uy/appl/servlet/FeaServlet", {
-      id: "login",
-      tipo_usuario: "C",
-      empresa: company.upcase,
-      empresa_aux: company,
-      pwd_empresa: company_password,
-      usuario: id,
-      usuario_aux: id,
-      pwd_usuario: password
-    })
+    response =
+      Bankrupt.post(
+        "https://www.itaulink.com.uy/appl/servlet/FeaServlet", {
+          id: "login",
+          tipo_usuario: "C",
+          empresa: company.upcase,
+          empresa_aux: company,
+          pwd_empresa: company_password,
+          usuario: id,
+          usuario_aux: id,
+          pwd_usuario: password
+        }
+      )
 
-    cookie = response['Set-Cookie'].split('; ')[0]
+    cookie = response["Set-Cookie"].split("; ")[0]
     @accounts_url = response["Location"]
 
     Bankrupt.cookie = cookie
@@ -133,12 +158,12 @@ Bankrupt = Struct.new(:id, :password, :company, :company_password) do
   def accounts
     @_accounts ||= begin
       response = Bankrupt.get(@accounts_url)
-      json_string = response.body[/var mensajeUsuario = JSON.parse\('(.*)'\)\;/, 1]
+      json_string = response.body[/var mensajeUsuario = JSON.parse\('(.*)'\);/, 1]
       json = JSON.parse(json_string)
       accounts = []
 
       accounts_json = json["cuentas"]
-      accounts_json.keys.each do |account_type|
+      accounts_json.each_key do |account_type|
         accounts_json[account_type].each do |account_data|
           accounts << Account.new(
             account_type,
@@ -151,26 +176,33 @@ Bankrupt = Struct.new(:id, :password, :company, :company_password) do
         end
       end
 
-      puts "There are #{accounts.size} accounts. (#{accounts.map(&:number).join(",")})"
+      puts "There are #{accounts.size} accounts. (#{accounts.map(&:number).join(',')})"
 
       accounts
     end
   end
 end
 
-if __FILE__ == $0
+if __FILE__ == $PROGRAM_NAME
   account_id = ARGV.fetch(0, ENV["CI"])
   password = ARGV.fetch(1, ENV["PASSWORD"])
   year = ARGV.fetch(2, ENV["YEAR"])
   month = ARGV.fetch(3, ENV["MONTH"])
+  ynab = ARGV.fetch(4, ENV["YNAB"])
 
   bankrupt = Bankrupt.new(account_id, password)
   bankrupt.login
   puts "Fetching account information..."
 
   bankrupt.accounts.each do |account|
-    filename = "#{[account.filename, year, month].compact.join("-")}.csv"
-    open(filename, "w") << account.balance_as_csv(year, month)
+    filename = "#{[account.filename, year, month].compact.join('-')}.csv"
+    csv =
+      if ynab
+        account.balance_as_ynab_csv(year, month)
+      else
+        account.balance_as_csv(year, month)
+      end
+    open(filename, "w") << csv
 
     puts "#{filename} exported"
   end

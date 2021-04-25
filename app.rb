@@ -1,8 +1,10 @@
+# frozen_string_literal: true
+
 require "./bankrupt"
 require "tmpdir"
 require "cuba"
 require "cuba/render"
-require 'zip/zip'
+require "zip/zip"
 require "date"
 
 Cuba.plugin Cuba::Render
@@ -10,8 +12,10 @@ Cuba.define do
   on(root) { res.write view("home") }
 
   on post, "accounts" do
-    account, password = req.params["username"], req.params["password"]
-    company, company_password = req.params["company"], req.params["company_password"]
+    account = req.params["username"]
+    password = req.params["password"]
+    company = req.params["company"]
+    company_password = req.params["company_password"]
 
     bankrupt = Bankrupt.new(account, password, company, company_password)
 
@@ -23,7 +27,7 @@ Cuba.define do
 
     puts "Fetching account information..."
 
-    zip_name = "accounts-#{account}-#{Time.now.strftime("%Y%m%dT%H%M%S")}.zip"
+    zip_name = "accounts-#{account}-#{Time.now.strftime('%Y%m%dT%H%M%S')}.zip"
     compressed = Tempfile.new(zip_name)
 
     Zip::ZipOutputStream.open(compressed.path) do |zip|
@@ -40,6 +44,5 @@ Cuba.define do
     res.write compressed.read
 
     compressed.close
-
   end
 end
