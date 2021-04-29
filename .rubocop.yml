@@ -1,0 +1,16 @@
+Layout/LineLength:
+  Enabled: false
+
+  Layout/MultilineAssignmentLayout:
+  Enabled: true
+
+Style/Documentation:
+  Enabled: false
+
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+  Exclude:
+    - "Gemfile"
+
+Style/SymbolArray:
+  EnforcedStyle: brackets
