@@ -47,7 +47,7 @@ Bankrupt = Struct.new(:id, :password, :company, :company_password) do
     end
 
     def balance_as_ynab_csv(year, month)
-      csv = %w[Date Payee Category Memo Outflow Inflow]
+      csv = %w[Date Payee Category Memo Outflow Inflow].to_csv
 
       balance(year, month).each do |item|
         csv << [
