@@ -10,7 +10,7 @@ GEM
       mini_portile2 (~> 2.8.0)
       racc (~> 1.4)
     racc (1.6.0)
-    rack (2.2.3)
+    rack (3.0.4.1)
     raindrops (0.19.1)
     tilt (2.0.10)
     unicorn (6.0.0)
